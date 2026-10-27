@@ -11,8 +11,10 @@ export async function GET() {
       displayName: user.displayName,
       role: user.role,
       status: user.status,
-      preferredLanguage: user.preferredLanguage,
-      preferredTheme: user.preferredTheme,
+      bio: user.bio || "",
+      avatarUrl: user.avatarUrl || "",
+      preferredLanguage: user.preferredLanguage || "en",
+      preferredTheme: user.preferredTheme || "system",
     },
   });
 }

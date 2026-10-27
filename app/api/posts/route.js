@@ -5,12 +5,12 @@ import { postCreateSchema, parseOrThrow } from "@/lib/validation/schemas";
 import { createNotification } from "@/lib/services/notifications";
 
 export async function GET(req) {
-  // ক্যাশ বন্ধ করার জন্য
   await connection();
   
   try {
     const url = new URL(req.url);
     const status = url.searchParams.get("status") || "published";
+    const feedType = url.searchParams.get("feed") || "all"; // "all" অথবা "following"
     const q = (url.searchParams.get("q") || "").trim();
     const sort = url.searchParams.get("sort") || "newest";
     const limit = Math.min(Number(url.searchParams.get("limit") || 10), 50);
@@ -19,11 +19,31 @@ export async function GET(req) {
     const db = await getDb();
     const coll = db.collection("posts");
 
-    const match = { status };
+    let match = { status };
     if (q) match.content = { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+
+    // ⚠️ ফিল্টারিং: Following ফিড
+    if (feedType === "following" && me) {
+      const follows = await db.collection("follows")
+        .find({ followerId: me._id })
+        .toArray();
+      const followingIds = follows.map(f => f.followingId);
+      
+      // সব পোস্ট যেগুলো ফলো করা ইউজারদের অথবা নিজের
+      match.authorId = { $in: [...followingIds, me._id] };
+    }
 
     const pipeline = [
       { $match: match },
+      {
+        $lookup: {
+          from: "users",
+          localField: "authorId",
+          foreignField: "_id",
+          as: "author"
+        }
+      },
+      { $addFields: { authorAvatar: { $arrayElemAt: ["$author.avatarUrl", 0] } } },
       {
         $lookup: {
           from: "reactions",
@@ -38,7 +58,6 @@ export async function GET(req) {
           localField: "_id",
           foreignField: "postId",
           as: "comments_data",
-          // ⚠️ এখানে deletedAt: null চেক করা হয়েছে
           pipeline: [{ $match: { deletedAt: null } }]
         }
       },
@@ -62,12 +81,7 @@ export async function GET(req) {
           }
         }
       },
-      {
-        $project: {
-          reactions_data: 0,
-          comments_data: 0
-        }
-      }
+      { $project: { reactions_data: 0, comments_data: 0, author: 0 } }
     ];
 
     if (sort === "top") {
@@ -78,7 +92,6 @@ export async function GET(req) {
     pipeline.push({ $limit: limit });
 
     const posts = await coll.aggregate(pipeline).toArray();
-    
     return NextResponse.json({ posts }, {
       headers: { "Cache-Control": "no-store, max-age=0" }
     });
@@ -98,8 +111,12 @@ export async function POST(req) {
     const data = parseOrThrow(postCreateSchema, body);
     const db = await getDb();
     const now = new Date();
+    // Extract hashtags from content
+    const hashtags = (data.content.match(/#[\w\u0980-\u09FF]+/g) || []).map(h => h.slice(1).toLowerCase());
+    
     const doc = {
-      content: data.content, status: data.status, pinned: data.pinned,
+      content: data.content,
+      hashtags: hashtags, status: data.status, pinned: data.pinned,
       authorId: user._id, authorName: user.displayName,
       createdAt: now, updatedAt: now,
       publishedAt: data.status === "published" ? now : null,

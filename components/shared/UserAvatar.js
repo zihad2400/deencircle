@@ -12,6 +12,7 @@ export default function UserAvatar({ name, role, avatarUrl, size = 40 }) {
           alt={name} 
           className={`rounded-full object-cover shadow-sm ${isAdmin ? "ring-2 ring-amber-400/50" : ""}`}
           style={{ width: size, height: size }}
+          onError={(e) => { e.target.style.display = 'none'; }} // ছবি লোড না হলে হাইড হবে
         />
       ) : (
         <div 

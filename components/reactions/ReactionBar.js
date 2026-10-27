@@ -18,9 +18,18 @@ export default function ReactionBar({ postId, initialReaction, initialCount, onU
   const [count, setCount] = useState(initialCount || 0);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   
   const hoverTimeout = useRef(null);
   const ref = useRef(null);
+
+  // স্ক্রিন সাইজ ডিটেক্ট করা
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     setPicked(initialReaction || null);
@@ -48,16 +57,13 @@ export default function ReactionBar({ postId, initialReaction, initialCount, onU
     }, 500);
   };
 
-  // রিঅ্যাকশন সিলেক্ট বা রিমুভ করার লজিক
   async function handleReactionClick(type) {
     if (busy) return;
     setBusy(true);
     
-    // যদি একই রিঅ্যাকশনে ক্লিক করা হয়, তবে সেটি ডিলিট হবে (Unreact)
     const isSame = picked === type;
     const method = isSame ? "DELETE" : "POST";
     
-    // Optimistic UI
     const oldPicked = picked;
     const oldCount = count;
     const newPicked = isSame ? null : type;
@@ -75,23 +81,12 @@ export default function ReactionBar({ postId, initialReaction, initialCount, onU
       });
       
       if (!res.ok) {
-        const data = await res.json();
-        // Rollback
         setPicked(oldPicked);
         setCount(oldCount);
         if (onUpdate) onUpdate(oldPicked, oldCount);
-        
-        if (res.status === 401) {
-          toast.error("Login Required", "Please log in to react.");
-        } else {
-          toast.error("Reaction Failed", data.error || "Try again");
-        }
+        toast.error("Error", "Could not react");
         return;
       }
-      
-      if (!isSame) toast.success("Reacted", type);
-      else toast.success("Removed", "Reaction removed");
-      
       setOpen(false);
     } catch (e) {
       setPicked(oldPicked);
@@ -107,22 +102,12 @@ export default function ReactionBar({ postId, initialReaction, initialCount, onU
 
   return (
     <div ref={ref} className="relative flex-1 flex justify-center">
-      {/* মূল বাটন */}
       <button
         type="button"
         disabled={busy}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        // ⚠️ এখানে লজিক আপডেট করা হয়েছে: 
-        // যদি কোনো রিঅ্যাকশন না থাকে, মেনু খুলবে। 
-        // যদি থাকে, তবে ক্লিক করলে সরাসরি Unreact হবে।
-        onClick={() => { 
-          if (picked) {
-            handleReactionClick(picked); 
-          } else {
-            setOpen(!open); 
-          }
-        }}
+        onClick={() => { if (!picked) setOpen(!open); }}
         className={`flex items-center justify-center gap-2 py-2 rounded-md hover:bg-ts-surface-2 text-sm font-medium transition-colors w-full disabled:opacity-50 ${activeType ? activeType.color : "text-ts-muted"}`}
       >
         {activeType ? (
@@ -142,18 +127,20 @@ export default function ReactionBar({ postId, initialReaction, initialCount, onU
         )}
       </button>
 
-      {/* ইমোজি মেনু */}
+      {/* Emoji Menu - Responsive Positioning */}
       {open && (
         <div 
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
-          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex gap-1 rounded-full border border-ts-border bg-ts-surface px-2 py-1 shadow-ts-2 z-20 animate-in fade-in slide-in-from-bottom-2 duration-200"
+          className={`absolute bottom-full mb-2 flex gap-1 rounded-full border border-ts-border bg-ts-surface px-2 py-1 shadow-ts-2 z-20 animate-in fade-in slide-in-from-bottom-2 duration-200
+            ${isMobile ? 'left-0 sm:left-1/2 sm:-translate-x-1/2' : 'left-1/2 -translate-x-1/2'}
+          `}
         >
           {TYPES.map((t) => (
             <button key={t.key} type="button" title={t.label}
               onClick={() => handleReactionClick(t.key)}
               disabled={busy}
-              className={`rounded-full p-1 text-2xl hover:scale-125 hover:-translate-y-1 transition-transform duration-200 disabled:opacity-50 ${picked === t.key ? 'ring-2 ring-ts-primary bg-ts-primary/20' : ''}`}>
+              className={`rounded-full p-1 text-xl sm:text-2xl hover:scale-125 hover:-translate-y-1 transition-transform duration-200 disabled:opacity-50 ${picked === t.key ? 'ring-2 ring-ts-primary bg-ts-primary/20' : ''}`}>
               {t.emoji}
             </button>
           ))}

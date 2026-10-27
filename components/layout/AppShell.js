@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useLang } from "@/components/shared/LanguageProvider";
 import { useTheme } from "@/components/shared/ThemeProvider";
@@ -16,7 +16,7 @@ import { SUPPORTED, LANG_META } from "@/lib/i18n";
 function NavItem({ href, label, icon, mobile = false, onClick }) {
   return (
     <Link href={href} onClick={onClick}
-      className={`flex ${mobile ? 'flex-col items-center gap-1 text-[10px]' : 'items-center gap-3 text-sm px-3 py-2'} rounded-ts hover:bg-ts-surface-2 transition-colors text-ts-text`}>
+      className={`flex ${mobile ? 'flex-col items-center justify-center gap-1 text-[10px]' : 'items-center gap-3 text-sm px-3 py-2'} rounded-ts hover:bg-ts-surface-2 transition-colors text-ts-text`}>
       <span aria-hidden className={`${mobile ? 'text-xl' : 'w-5 text-center opacity-80'}`}>{icon}</span>
       <span className={mobile ? "font-medium" : ""}>{label}</span>
     </Link>
@@ -82,10 +82,11 @@ function ProfileMenu({ me, onLogout }) {
 export default function AppShell({ children }) {
   const { tr, lang, setLang, meta } = useLang();
   const { mode, setMode } = useTheme();
-  const { user: me, logout: clearAuth } = useAuth(); // AuthContext থেকে ইউজার নেওয়া
+  const { user: me, logout: clearAuth } = useAuth(); 
   const toast = useToast();
   const pathname = usePathname();
   const [mobileMenu, setMobileMenu] = useState(false);
+  const isMessagesPage = pathname === "/messages";
 
   useEffect(() => {
     setMobileMenu(false);
@@ -94,7 +95,7 @@ export default function AppShell({ children }) {
   async function logout() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      clearAuth(); // AuthContext ক্লিয়ার
+      clearAuth(); 
       toast.success(tr("nav.logout"), "");
       window.location.href = "/login";
     } catch {
@@ -106,7 +107,7 @@ export default function AppShell({ children }) {
   const closeMenu = () => setMobileMenu(false);
 
   return (
-    <div className="min-h-screen flex flex-col bg-ts-bg text-ts-text pb-16 md:pb-0">
+    <div className="min-h-screen flex flex-col bg-ts-bg text-ts-text pb-20 md:pb-0">
       <header className="sticky top-0 z-30 border-b border-ts-border bg-ts-surface/95 backdrop-blur">
         <div className="mx-auto max-w-6xl px-4 h-14 flex items-center gap-3">
           
@@ -125,13 +126,20 @@ export default function AppShell({ children }) {
           </nav>
           
           <div className="ml-auto flex items-center gap-2">
-            {me && <NotificationBell />}
+            <Link href="/messages" className="p-2 rounded-full border border-ts-border bg-ts-surface hover:bg-ts-surface-2 text-ts-text" aria-label="Messages">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            </Link>
+
+            <NotificationBell />
+
             <div className="hidden sm:block"><LanguageSwitcher /></div>
+
             <button type="button" onClick={() => setMode(mode === "dark" ? "light" : "dark")}
               className="rounded-ts-sm border border-ts-border bg-ts-surface px-2 py-1 text-sm"
               aria-label={tr("settings.theme")}>
               {mode === "dark" ? "☀" : "☾"}
             </button>
+
             {me ? <ProfileMenu me={me} onLogout={logout} /> : (
               <Link href="/login" className="rounded-ts-sm px-3 py-1.5 text-sm bg-ts-primary text-ts-primary-text hover:opacity-90">
                 {tr("nav.login")}
@@ -153,6 +161,7 @@ export default function AppShell({ children }) {
               <NavItem href="/" label={tr("nav.home")} icon="⌂" onClick={closeMenu} />
               <NavItem href="/explore" label={tr("nav.explore")} icon="⌕" onClick={closeMenu} />
               <NavItem href="/notifications" label={tr("nav.notifications")} icon="◔" onClick={closeMenu} />
+              <NavItem href="/messages" label="Messages" icon="💬" onClick={closeMenu} />
               <NavItem href="/bookmarks" label="Saved Posts" icon="🔖" onClick={closeMenu} />
               {isAdmin && <NavItem href="/admin" label="Admin Dashboard" icon="🛡️" onClick={closeMenu} />}
               {me && <NavItem href={`/profile/${me.id}`} label={tr("nav.profile")} icon="◑" onClick={closeMenu} />}
@@ -167,29 +176,37 @@ export default function AppShell({ children }) {
         </div>
       )}
 
-      <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6">
-        <aside className="hidden md:block">
-          <div className="sticky top-20 space-y-1 rounded-ts border border-ts-border bg-ts-surface p-2 shadow-ts-1">
-            <NavItem href="/" label={tr("nav.home")} icon="⌂" />
-            <NavItem href="/explore" label={tr("nav.explore")} icon="⌕" />
-            <NavItem href="/notifications" label={tr("nav.notifications")} icon="◔" />
-            <NavItem href="/bookmarks" label="Saved Posts" icon="🔖" />
-            {isAdmin && <NavItem href="/admin" label="Admin Dashboard" icon="🛡️" />}
-            {isAdmin && <NavItem href="/admin/moderation" label="Moderation" icon="⚠" />}
-            {isAdmin && <NavItem href="/admin/users" label="Users" icon="👥" />}
-            {me && <NavItem href={`/profile/${me.id}`} label={tr("nav.profile")} icon="◑" />}
-            <NavItem href="/settings" label={tr("nav.settings")} icon="⚙" />
-          </div>
-        </aside>
-
-        <main>{children}</main>
-      </div>
-
-      <footer className="border-t border-ts-border bg-ts-surface hidden md:block">
-        <div className="mx-auto max-w-6xl px-4 h-12 flex items-center text-xs text-ts-muted">
-          © <FooterYear />{" "}{tr("brand.name")} · {tr("footer.rights")} · {meta[lang].label}
+      {isMessagesPage ? (
+        <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-0 h-[calc(100vh-120px)] md:h-[calc(100vh-56px)] overflow-hidden">
+          <main className="h-full w-full min-h-0 overflow-hidden">{children}</main>
         </div>
-      </footer>
+      ) : (
+        <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6 min-h-0">
+          <aside className="hidden md:block">
+            <div className="sticky top-20 space-y-1 rounded-ts border border-ts-border bg-ts-surface p-2 shadow-ts-1">
+              <NavItem href="/" label={tr("nav.home")} icon="⌂" />
+              <NavItem href="/explore" label={tr("nav.explore")} icon="⌕" />
+              <NavItem href="/notifications" label={tr("nav.notifications")} icon="◔" />
+              <NavItem href="/messages" label="Messages" icon="💬" />
+              <NavItem href="/bookmarks" label="Saved Posts" icon="🔖" />
+              {isAdmin && <NavItem href="/admin" label="Admin Dashboard" icon="🛡️" />}
+              {isAdmin && <NavItem href="/admin/moderation" label="Moderation" icon="⚠" />}
+              {isAdmin && <NavItem href="/admin/users" label="Users" icon="👥" />}
+              {me && <NavItem href={`/profile/${me.id}`} label={tr("nav.profile")} icon="◑" />}
+              <NavItem href="/settings" label={tr("nav.settings")} icon="⚙" />
+            </div>
+          </aside>
+          <main className="min-h-0">{children}</main>
+        </div>
+      )}
+
+      {!isMessagesPage && (
+        <footer className="border-t border-ts-border bg-ts-surface hidden md:block">
+          <div className="mx-auto max-w-6xl px-4 h-12 flex items-center text-xs text-ts-muted">
+            © <FooterYear />{" "}{tr("brand.name")} · {tr("footer.rights")} · {meta[lang].label}
+          </div>
+        </footer>
+      )}
 
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-ts-border bg-ts-surface h-16 flex items-center justify-around pb-safe">
         <NavItem href="/" label={tr("nav.home")} icon="⌂" mobile />

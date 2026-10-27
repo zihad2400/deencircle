@@ -11,6 +11,7 @@ const TYPE_ICON = {
   reaction: "❤️",
   system: "🔔",
   moderation: "🛡️",
+  message: "💬",
 };
 
 function timeAgo(iso, lang) {

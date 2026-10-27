@@ -169,3 +169,50 @@ html, body {
   word-break: break-word;
   overflow-wrap: anywhere;
 }
+
+/* Remove blue focus ring from search input */
+input[type="text"]:focus,
+input[type="search"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: inherit !important;
+}
+
+/* Remove focus borders globally from inputs and textareas */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+}
+
+/* Ensure full height for layouts */
+html, body {
+  height: 100%;
+}
+
+#__next, main {
+  height: 100%;
+}
+
+/* Ensure smooth scrolling for message areas */
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* Ensure smooth scrolling in message areas */
+.scrollable-chat {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Fix for dynamic viewport height */
+@supports (height: 100dvh) {
+  .h-\[100dvh\] {
+    height: 100dvh;
+  }
+}

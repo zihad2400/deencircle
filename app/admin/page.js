@@ -4,63 +4,107 @@ import { Suspense } from "react";
 import { getDb } from "@/lib/mongodb/connection";
 import AdminPostForm from "@/components/admin/AdminPostForm";
 import AdminPostsList from "@/components/admin/AdminPostsList";
+import UserAvatar from "@/components/shared/UserAvatar";
 
-// ডেটাবেস থেকে কাউন্ট আনার জন্য আলাদা অ্যাসিংক কম্পোনেন্ট
 async function AdminStats() {
-  // Next.js 16 এ dynamic data access নিশ্চিত করা (কোনো dynamic export ছাড়া)
   await connection();
   
   const db = await getDb();
-  const [users, posts, comments, reactions, pendingReports] = await Promise.all([
+  const [users, posts, comments, reactions, pendingReports, recentUsers, recentComments] = await Promise.all([
     db.collection("users").countDocuments(),
-    db.collection("posts").countDocuments(),
+    db.collection("posts").countDocuments({ status: "published" }),
     db.collection("comments").countDocuments({ deletedAt: null }),
     db.collection("reactions").countDocuments(),
     db.collection("contentReports").countDocuments({ status: "pending" }),
+    db.collection("users").find({}).sort({ createdAt: -1 }).limit(5).toArray(),
+    db.collection("comments").find({ deletedAt: null }).sort({ createdAt: -1 }).limit(5).toArray()
   ]);
 
   const stats = [
-    { label: "Users", value: users },
-    { label: "Posts", value: posts },
-    { label: "Comments", value: comments },
-    { label: "Reactions", value: reactions },
+    { label: "Total Users", value: users, icon: "👥", color: "text-blue-500" },
+    { label: "Published Posts", value: posts, icon: "📝", color: "text-green-500" },
+    { label: "Comments", value: comments, icon: "💬", color: "text-purple-500" },
+    { label: "Reactions", value: reactions, icon: "❤️", color: "text-rose-500" },
   ];
 
   return (
-    <div className="space-y-6">
-      <nav className="flex gap-2 flex-wrap">
-        <Link href="/admin/moderation" className="rounded-ts-sm border border-ts-border px-3 py-1.5 text-sm hover:bg-ts-surface-2 transition-colors flex items-center gap-1">
-          🛡️ Moderation {pendingReports > 0 && <span className="rounded-full bg-rose-500 px-1.5 text-[10px] text-white">{pendingReports}</span>}
+    <div className="space-y-8">
+      
+      {/* Pending Reports Alert */}
+      {pendingReports > 0 && (
+        <Link href="/admin/moderation" className="block rounded-ts-lg border border-amber-500/30 bg-amber-500/10 p-4 hover:bg-amber-500/20 transition-colors">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">⚠️</span>
+            <div>
+              <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">Pending Reports</p>
+              <p className="text-xs text-amber-600/80 dark:text-amber-400/80">You have {pendingReports} reports awaiting review.</p>
+            </div>
+            <span className="ml-auto rounded-full bg-amber-500 px-3 py-1 text-xs font-bold text-white">{pendingReports}</span>
+          </div>
         </Link>
-        <Link href="/admin/users" className="rounded-ts-sm border border-ts-border px-3 py-1.5 text-sm hover:bg-ts-surface-2 transition-colors flex items-center gap-1">
-          👥 Users
-        </Link>
-      </nav>
+      )}
 
-      <ul className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s) => (
-          <li key={s.label} className="rounded-ts border border-ts-border bg-ts-surface p-4 shadow-ts-1">
-            <p className="text-xs text-ts-muted uppercase tracking-wider">{s.label}</p>
-            <p className="text-3xl font-semibold mt-1">{s.value}</p>
-          </li>
+          <div key={s.label} className="rounded-ts-lg border border-ts-border bg-ts-surface p-5 shadow-ts-1">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-ts-muted">{s.label}</p>
+              <span className={`text-xl ${s.color}`}>{s.icon}</span>
+            </div>
+            <p className="text-3xl font-bold">{s.value}</p>
+          </div>
         ))}
-      </ul>
+      </div>
+
+      {/* Recent Activity Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Recent Users */}
+        <div className="rounded-ts-lg border border-ts-border bg-ts-surface p-5 shadow-ts-1">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">New Users</h3>
+            <Link href="/admin/users" className="text-xs text-ts-primary hover:underline">View All</Link>
+          </div>
+          <ul className="space-y-3">
+            {recentUsers.map(u => (
+              <li key={String(u._id)} className="flex items-center gap-3">
+                <UserAvatar name={u.displayName} role={u.role} avatarUrl={u.avatarUrl} size={32} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{u.displayName}</p>
+                  <p className="text-xs text-ts-muted truncate">{u.email}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Recent Comments */}
+        <div className="rounded-ts-lg border border-ts-border bg-ts-surface p-5 shadow-ts-1">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">Recent Comments</h3>
+          </div>
+          <ul className="space-y-3">
+            {recentComments.map(c => (
+              <li key={String(c._id)} className="flex flex-col gap-1 border-b border-ts-border last:border-0 pb-2">
+                <p className="text-xs font-semibold">{c.authorName}</p>
+                <p className="text-sm text-ts-muted truncate">{c.content}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
     </div>
   );
 }
 
-// স্কেলেটন লোডার
 function StatsSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse">
-      <div className="flex gap-2">
-        <div className="h-8 w-32 bg-ts-surface-2 rounded-ts-sm"></div>
-        <div className="h-8 w-24 bg-ts-surface-2 rounded-ts-sm"></div>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="space-y-8 animate-pulse">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map(i => (
-          <div key={i} className="rounded-ts border border-ts-border bg-ts-surface p-4">
-            <div className="h-3 w-16 bg-ts-surface-2 rounded mb-3"></div>
+          <div key={i} className="rounded-ts-lg border border-ts-border bg-ts-surface p-5">
+            <div className="h-3 w-20 bg-ts-surface-2 rounded mb-3"></div>
             <div className="h-8 w-12 bg-ts-surface-2 rounded"></div>
           </div>
         ))}
@@ -69,23 +113,30 @@ function StatsSkeleton() {
   );
 }
 
-// মূল পেজ
 export default function AdminPage() {
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
+    <div className="space-y-8 pb-10">
       
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+        <p className="text-sm text-ts-muted mt-1">Overview of your platform's activity.</p>
+      </div>
+
+      {/* Stats & Activity */}
       <Suspense fallback={<StatsSkeleton />}>
         <AdminStats />
       </Suspense>
 
-      <section className="rounded-ts-lg border border-ts-border bg-ts-surface p-4 shadow-ts-1">
-        <h2 className="text-lg font-semibold mb-3">Create New Post</h2>
+      {/* Create New Post */}
+      <section className="rounded-ts-lg border border-ts-border bg-ts-surface p-5 shadow-ts-1">
+        <h2 className="text-lg font-semibold mb-4">Create New Post</h2>
         <AdminPostForm />
       </section>
 
-      <section className="rounded-ts-lg border border-ts-border bg-ts-surface p-4 shadow-ts-1">
-        <h2 className="text-lg font-semibold mb-3">All Posts</h2>
+      {/* All Posts */}
+      <section className="rounded-ts-lg border border-ts-border bg-ts-surface p-5 shadow-ts-1">
+        <h2 className="text-lg font-semibold mb-4">All Posts</h2>
         <AdminPostsList />
       </section>
     </div>

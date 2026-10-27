@@ -3,11 +3,13 @@
 import { useState, useRef, useEffect } from "react";
 import { useToast } from "@/components/shared/ToastProvider";
 import ConfirmModal from "@/components/shared/ConfirmModal";
+import ReportModal from "@/components/shared/ReportModal";
 
-export default function PostOptionsMenu({ post, onEdit, onDelete }) {
+export default function PostOptionsMenu({ post, onEdit, onDelete, isAdmin }) {
   const toast = useToast();
   const [open, setOpen] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const ref = useRef(null);
 
   useEffect(() => {
@@ -22,15 +24,13 @@ export default function PostOptionsMenu({ post, onEdit, onDelete }) {
     try {
       const res = await fetch(`/api/posts/${post._id}`, { method: "DELETE" });
       if (!res.ok) {
-        const d = await res.json();
-        toast.error("Delete Failed", d.error || "Could not delete post");
+        toast.error("Delete Failed", "Could not delete post");
         throw new Error("failed");
       }
-      toast.success("Deleted", "Post has been deleted successfully");
+      toast.success("Deleted", "Post has been deleted");
       onDelete(post._id);
     } catch (e) {
-      toast.error("Error", "Network error while deleting");
-      throw e; // Re-throw so modal stays open
+      throw e;
     }
   }
 
@@ -50,33 +50,50 @@ export default function PostOptionsMenu({ post, onEdit, onDelete }) {
         </button>
 
         {open && (
-          <div className="absolute right-0 top-full mt-1 w-40 rounded-ts-sm border border-ts-border bg-ts-surface shadow-ts-2 z-30 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
-            <button
-              onClick={() => { setOpen(false); onEdit(post); }}
-              className="w-full text-left px-4 py-2 text-sm hover:bg-ts-surface-2 flex items-center gap-2"
-            >
-              ✏️ Edit Post
-            </button>
-            <button
-              onClick={() => { setOpen(false); setShowConfirm(true); }}
-              className="w-full text-left px-4 py-2 text-sm hover:bg-rose-500/10 text-rose-500 flex items-center gap-2"
-            >
-              🗑️ Delete Post
-            </button>
+          <div className="absolute right-0 top-full mt-1 w-44 rounded-ts-sm border border-ts-border bg-ts-surface shadow-ts-2 z-30 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+            {isAdmin ? (
+              <>
+                <button
+                  onClick={() => { setOpen(false); onEdit(post); }}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-ts-surface-2 flex items-center gap-2"
+                >
+                  ✏️ Edit Post
+                </button>
+                <button
+                  onClick={() => { setOpen(false); setShowDeleteConfirm(true); }}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-rose-500/10 text-rose-500 flex items-center gap-2"
+                >
+                  🗑️ Delete Post
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => { setOpen(false); setShowReportModal(true); }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-amber-500/10 text-amber-500 flex items-center gap-2"
+              >
+                ⚠️ Report Post
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {/* Custom Confirmation Modal */}
       <ConfirmModal 
-        isOpen={showConfirm}
-        onClose={() => setShowConfirm(false)}
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDeleteConfirm}
         title="Delete Post?"
-        message="Are you sure you want to delete this post? This action cannot be undone and will remove all reactions and comments."
+        message="Are you sure you want to delete this post? This action cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"
         isDanger={true}
+      />
+
+      <ReportModal 
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetType="post"
+        targetId={post._id}
       />
     </>
   );

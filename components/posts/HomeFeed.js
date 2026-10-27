@@ -8,7 +8,6 @@ import CommentSection from "@/components/comments/CommentSection";
 import PostOptionsMenu from "@/components/posts/PostOptionsMenu";
 import EditPostModal from "@/components/posts/EditPostModal";
 import UserAvatar from "@/components/shared/UserAvatar";
-import ShareModal from "@/components/shared/ShareModal";
 import Link from "next/link";
 
 function fmt(n) {
@@ -52,9 +51,9 @@ export default function HomeFeed() {
   const [state, setState] = useState({ status: "loading", posts: [], error: null });
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("newest");
+  const [feedType, setFeedType] = useState("all");
   const [editingPost, setEditingPost] = useState(null);
-  const [sharingPost, setSharingPost] = useState(null);
-
+  
   useEffect(() => {
     fetch("/api/auth/me").then(r => r.json()).then(d => setMe(d.user)).catch(() => {});
   }, []);
@@ -62,7 +61,7 @@ export default function HomeFeed() {
   const load = useCallback(async () => {
     setState((s) => ({ ...s, status: "loading" }));
     try {
-      const qs = new URLSearchParams({ status: "published", limit: "20", sort });
+      const qs = new URLSearchParams({ status: "published", limit: "20", sort, feed: feedType });
       if (q.trim()) qs.set("q", q.trim());
       const res = await fetch(`/api/posts?${qs}`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -71,21 +70,30 @@ export default function HomeFeed() {
     } catch (e) {
       setState({ status: "error", posts: [], error: e.message });
     }
-  }, [q, sort]);
+  }, [q, sort, feedType]);
 
   useEffect(() => { load(); }, [load]);
 
-  async function handleShareClick(id) {
-    const postToShare = state.posts.find(p => p._id === id);
-    if (postToShare) setSharingPost(postToShare);
-    
+  async function handleShareClick(post) {
+    const url = `${window.location.origin}/#post-${post._id}`;
+    const shareData = { title: "DeenCircle Post", text: post.content.slice(0, 100), url };
+
     try {
-      await fetch(`/api/posts/${id}/share`, { method: "POST" });
+      if (navigator.share) {
+        await navigator.share(shareData);
+        toast.success("Shared", "Post shared successfully");
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success("Link Copied", "Post link copied");
+      }
+      await fetch(`/api/posts/${post._id}/share`, { method: "POST" });
       setState(prev => ({
         ...prev,
-        posts: prev.posts.map(p => p._id === id ? { ...p, shareCount: (p.shareCount || 0) + 1 } : p)
+        posts: prev.posts.map(p => p._id === post._id ? { ...p, shareCount: (p.shareCount || 0) + 1 } : p)
       }));
-    } catch (e) {}
+    } catch (err) {
+      if (err.name !== "AbortError") toast.error("Error", "Could not share");
+    }
   }
 
   function handlePostDeleted(id) {
@@ -105,14 +113,24 @@ export default function HomeFeed() {
         <p className="text-sm text-ts-muted">{tr("feed.subtitle")}</p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2 mb-4">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search posts…"
-          className="flex-1 min-w-48 rounded-full border border-ts-border bg-ts-surface-2 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ts-primary/50" />
-        <select value={sort} onChange={(e) => setSort(e.target.value)}
-          className="rounded-full border border-ts-border bg-ts-surface px-4 py-2 text-sm focus:outline-none">
-          <option value="newest">Newest</option>
-          <option value="top">Most Reacted</option>
-        </select>
+      {/* Tabs */}
+      <div className="flex border-b border-ts-border mb-2">
+        <button onClick={() => setFeedType("all")} className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${feedType === "all" ? "border-ts-primary text-ts-primary" : "border-transparent text-ts-muted hover:text-ts-text"}`}>For You</button>
+        <button onClick={() => setFeedType("following")} className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${feedType === "following" ? "border-ts-primary text-ts-primary" : "border-transparent text-ts-muted hover:text-ts-text"}`}>Following</button>
+      </div>
+
+      {/* Search & Sort Bar - Responsive */}
+      <div className="flex justify-end mb-4">
+        <div className="relative w-full sm:w-auto shrink-0">
+          <select 
+            value={sort} 
+            onChange={(e) => setSort(e.target.value)}
+            className="w-full appearance-none rounded-full border border-ts-border bg-ts-surface pl-4 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ts-primary/50 cursor-pointer">
+            <option value="newest">Newest</option>
+            <option value="top">Most Reacted</option>
+          </select>
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-ts-muted text-xs">▼</span>
+        </div>
       </div>
 
       {state.status === "loading" && <div className="space-y-4"><SkeletonCard /><SkeletonCard /></div>}
@@ -138,18 +156,22 @@ export default function HomeFeed() {
             <li key={p._id} id={`post-${p._id}`}
                 className="rounded-ts-lg border border-ts-border bg-ts-surface shadow-ts-1 overflow-hidden">
               
-              <div className="flex items-start gap-3 p-3 sm:p-4 pb-2">
-                <Link href={`/profile/${p.authorId}`}><UserAvatar name={p.authorName} role="admin" avatarUrl={p.authorAvatar} size={42} /></Link>
+              <div className="flex items-start gap-2 p-3 pb-2">
+                <Link href={`/profile/${String(p.authorId)}`} className="shrink-0">
+                  <UserAvatar name={p.authorName} role="admin" avatarUrl={p.authorAvatar} size={42} />
+                </Link>
                 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1">
-                    <Link href={`/profile/${p.authorId}`} className="font-semibold text-[15px] hover:underline">{p.authorName || "Administrator"}</Link>
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="#3b82f6" className="inline-block">
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <Link href={`/profile/${String(p.authorId)}`} className="font-semibold text-[15px] hover:underline truncate max-w-[120px] sm:max-w-full">
+                      {p.authorName || "Administrator"}
+                    </Link>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="#3b82f6" className="shrink-0">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                     </svg>
-                    {p.pinned && <span className="ml-1 text-[10px] bg-ts-primary-soft text-ts-primary px-1.5 py-0.5 rounded-sm font-semibold">📌 Pinned</span>}
+                    {p.pinned && <span className="text-[10px] bg-ts-primary-soft text-ts-primary px-1.5 py-0.5 rounded-sm font-semibold whitespace-nowrap">📌 Pinned</span>}
                   </div>
-                  <div className="text-xs text-ts-muted flex items-center gap-1 mt-0.5">
+                  <div className="text-xs text-ts-muted flex items-center gap-1 mt-0.5 flex-wrap">
                     <time suppressHydrationWarning>{timeAgo(p.publishedAt || p.createdAt, lang)}</time>
                     <span>·</span>
                     <span>🌍 Public</span>
@@ -162,6 +184,7 @@ export default function HomeFeed() {
                     post={p} 
                     onEdit={(post) => setEditingPost(post)} 
                     onDelete={handlePostDeleted} 
+                    isAdmin={isAdmin}
                   />
                 )}
               </div>
@@ -211,7 +234,7 @@ export default function HomeFeed() {
                   <span className="hidden sm:inline">Comment</span>
                 </button>
 
-                <button onClick={() => handleShareClick(p._id)}
+                <button onClick={() => handleShareClick(p)}
                   className="flex-1 flex items-center justify-center gap-2 py-2 rounded-md hover:bg-ts-surface-2 text-ts-muted text-sm font-medium transition-colors">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
                   <span className="hidden sm:inline">Share</span>
@@ -245,14 +268,6 @@ export default function HomeFeed() {
         />
       )}
 
-      {sharingPost && (
-        <ShareModal 
-          isOpen={!!sharingPost}
-          onClose={() => setSharingPost(null)}
-          postId={sharingPost._id}
-          content={sharingPost.content}
-        />
-      )}
-    </div>
+         </div>
   );
 }
