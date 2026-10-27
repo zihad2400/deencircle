@@ -10,6 +10,7 @@ import { useToast } from "@/components/shared/ToastProvider";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import LanguageSwitcher from "@/components/shared/LanguageSwitcher";
 import BrandLogo from "@/components/shared/BrandLogo";
+import Footer from "@/components/layout/Footer";
 import UserAvatar from "@/components/shared/UserAvatar";
 import { SUPPORTED, LANG_META } from "@/lib/i18n";
 
@@ -200,13 +201,7 @@ export default function AppShell({ children }) {
         </div>
       )}
 
-      {!isMessagesPage && (
-        <footer className="border-t border-ts-border bg-ts-surface hidden md:block">
-          <div className="mx-auto max-w-6xl px-4 h-12 flex items-center text-xs text-ts-muted">
-            © <FooterYear />{" "}{tr("brand.name")} · {tr("footer.rights")} · {meta[lang].label}
-          </div>
-        </footer>
-      )}
+      {!isMessagesPage && <Footer />}
 
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-ts-border bg-ts-surface h-16 flex items-center justify-around pb-safe">
         <NavItem href="/" label={tr("nav.home")} icon="⌂" mobile />
