@@ -1,4 +1,5 @@
 import "./globals.css";
+import { Suspense } from "react";
 import { LanguageProvider } from "@/components/shared/LanguageProvider";
 import { ThemeProvider } from "@/components/shared/ThemeProvider";
 import { ToastProvider } from "@/components/shared/ToastProvider";
@@ -6,9 +7,6 @@ import { AuthProvider } from "@/components/shared/AuthProvider";
 import AppShell from "@/components/layout/AppShell";
 
 export const metadata = {
-  icons: {
-    icon: "/icon.svg",
-  },
   title: "DeenCircle",
   description: "Faith. Community. Connection.",
 };
@@ -36,7 +34,9 @@ export default function RootLayout({ children }) {
           <LanguageProvider>
             <AuthProvider>
               <ToastProvider>
-                <AppShell>{children}</AppShell>
+                <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-ts-muted">Loading...</div>}>
+                  <AppShell>{children}</AppShell>
+                </Suspense>
               </ToastProvider>
             </AuthProvider>
           </LanguageProvider>
