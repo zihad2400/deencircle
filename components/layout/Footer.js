@@ -19,7 +19,7 @@ export default function Footer() {
           
           {/* Copyright */}
           <p className="text-xs text-ts-muted text-center sm:text-left">
-            © {new Date().getFullYear()} {tr("brand.name")} · {tr("footer.rights")}
+            © 2026 {tr("brand.name")} · {tr("footer.rights")}
           </p>
 
           {/* Links */}

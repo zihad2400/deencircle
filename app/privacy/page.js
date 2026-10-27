@@ -7,7 +7,7 @@ export default function PrivacyPage() {
   return (
     <div className="max-w-3xl mx-auto py-10 px-4 space-y-6">
       <h1 className="text-3xl font-bold">Privacy Policy</h1>
-      <p className="text-sm text-ts-muted">Last updated: {new Date().getFullYear()}</p>
+      <p className="text-sm text-ts-muted">Last updated: 2026</p>
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">1. Information We Collect</h2>
