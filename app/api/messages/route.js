@@ -15,7 +15,7 @@ export async function GET(req) {
   
   const db = await getDb();
   
-  // ইউজার সার্চ (নতুন চ্যাট শুরু করার জন্য)
+  // ইউজার সার্চ
   if (search !== null) {
     const users = await db.collection("users").find({
       _id: { $ne: me._id },
@@ -39,7 +39,6 @@ export async function GET(req) {
   if (withUser) {
     if (!ObjectId.isValid(withUser)) return NextResponse.json({ error: "bad_id" }, { status: 400 });
     
-    // মেসেজগুলো নিয়ে আসা
     const messages = await db.collection("messages").find({
       $or: [
         { from: me._id, to: new ObjectId(withUser) },
@@ -47,7 +46,6 @@ export async function GET(req) {
       ]
     }).sort({ createdAt: 1 }).toArray();
 
-    // Seen করে দেওয়া (যদি মেসেজ আমার না হয় এবং read না হয়ে থাকে)
     const unreadIds = messages
       .filter(m => !m.read && String(m.to) === String(me._id))
       .map(m => m._id);
@@ -57,6 +55,13 @@ export async function GET(req) {
         { _id: { $in: unreadIds } },
         { $set: { read: true, readAt: new Date() } }
       );
+
+      // 🧹 চ্যাট ওপেন করলে সেই ইউজারের পাঠানো মেসেজ নোটিফিকেশন ডিলিট করে দাও
+      await db.collection("notifications").deleteMany({
+        recipientId: me._id,
+        type: "message",
+        "meta.senderId": String(withUser)
+      });
     }
 
     return NextResponse.json({
@@ -66,7 +71,6 @@ export async function GET(req) {
         to: String(m.to),
         content: m.content,
         type: m.type || "text",
-        meta: m.meta || null,
         meta: m.meta || null,
         read: m.read || false,
         createdAt: m.createdAt
@@ -127,12 +131,14 @@ export async function POST(req) {
   if (!ObjectId.isValid(to)) return NextResponse.json({ error: "bad_to" }, { status: 400 });
 
   const db = await getDb();
+  const recipientId = new ObjectId(to);
+
+  // ১. মেসেজ সেভ
   const doc = {
     from: me._id,
-    to: new ObjectId(to),
+    to: recipientId,
     content: content.trim(),
     type: type,
-    meta: meta || null,
     meta: meta || null,
     read: false,
     readAt: null,
@@ -140,22 +146,32 @@ export async function POST(req) {
   };
   await db.collection("messages").insertOne(doc);
 
-  // 🔔 প্রাপকের জন্য নোটিফিকেশন তৈরি করা
+  // 🔔 ২. স্মার্ট নোটিফিকেশন লজিক
   try {
-    const sender = await db.collection("users").findOne(
-      { _id: me._id }, 
-      { projection: { displayName: 1 } }
-    );
-    
-    await createNotification({
-      recipientId: new ObjectId(to),
-      audience: "user",
-      type: "message",
-      title: `New message from ${sender.displayName}`,
-      body: content.length > 50 ? content.slice(0, 50) + "..." : content,
-      link: `/messages?with=${me._id}`,
-      meta: { senderId: String(me._id) }
+    // এই প্রেরকের কাছ থেকে আনরিড মেসেজ আছে কিনা চেক
+    const unreadCount = await db.collection("messages").countDocuments({
+      from: me._id,
+      to: recipientId,
+      read: false
     });
+
+    // ✅ শুধুমাত্র প্রথম আনরিড মেসেজে নোটিফিকেশন (বারবার নয়)
+    if (unreadCount === 1) {
+      const sender = await db.collection("users").findOne(
+        { _id: me._id }, 
+        { projection: { displayName: 1 } }
+      );
+      
+      await createNotification({
+        recipientId: recipientId,
+        audience: "user",
+        type: "message",
+        title: `New message from ${sender.displayName}`,
+        body: content.length > 50 ? content.slice(0, 50) + "..." : content,
+        link: `/messages?with=${me._id}`,
+        meta: { senderId: String(me._id) }
+      });
+    }
   } catch (e) {
     console.error("[notification]", e);
   }
