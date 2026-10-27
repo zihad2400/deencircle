@@ -1,0 +1,45 @@
+{
+  "brand": {
+    "name": "DeenCircle",
+    "tagline": "Iman. Komunitas. Koneksi."
+  },
+  "nav": {
+    "home": "Home",
+    "explore": "Explore",
+    "notifications": "Notifications",
+    "settings": "Settings",
+    "profile": "Profile",
+    "admin": "Admin",
+    "login": "Log in",
+    "register": "Sign up",
+    "logout": "Log out"
+  },
+  "feed": {
+    "title": "Community Feed",
+    "subtitle": "Posts from our administrators",
+    "empty": "No posts yet. Check back soon.",
+    "loading": "Loading posts…",
+    "error": "Could not load posts. Please retry.",
+    "loadMore": "Load more",
+    "reactions": "reactions",
+    "comments": "comments",
+    "pinned": "Pinned",
+    "edited": "edited"
+  },
+  "actions": {
+    "retry": "Retry",
+    "save": "Save",
+    "cancel": "Cancel",
+    "submit": "Submit"
+  },
+  "settings": {
+    "language": "Language",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System"
+  },
+  "footer": {
+    "rights": "All rights reserved."
+  }
+}
