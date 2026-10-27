@@ -41,3 +41,19 @@ yarn-error.log*
 next-env.d.ts
 .env.local
 .env*.local
+
+# Large binary installers
+*.deb
+*.rpm
+*.AppImage
+*.dmg
+*.exe
+*.msi
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.backup
+*.bak
